@@ -9,7 +9,7 @@ const handler = {
         const client = mongoClient();
         client.find().then((data: any) => {
             res.status(200).send(data);
-        }).catch((error) => {
+        }).catch((error: any) => {
             res.status(500).send(error);
         })
     },

@@ -3,7 +3,7 @@ const config = {
         logLevel: 'debug',
         logFile: '',
     },
-    mongoUrl: 'mongodb://127.0.0.1:27017/local',
+    mongoUrl: 'mongodb://127.0.0.1:27017',
     apiUrl: {
         user: 'https://jsonplaceholder.typicode.com/users',
         post: 'https://jsonplaceholder.typicode.com/posts',
