@@ -1,17 +1,100 @@
-import Bluebird, { resolve, reject } from 'bluebird';
-import { getClient } from '../services/winston';
+import Bluebird from 'bluebird';
 
+import mongoose from 'mongoose';
+
+import config from '../config';
 import getUsers from './user';
 import getComments from './comments';
 import getPosts from './post';
 
 import { commentsModel, postsModel, userModel } from '../models';
 
+import { getClient } from '../services/winston';
+import createDatabase from '../services/mongo';
+
 Promise = Bluebird as any || Promise;
 
-export default async function handleData (mongoClient: any): Promise<any> {
+async function mapDatabase(users: any): Promise<any>{
     return new Promise(async (resolve, reject) => {
-        const logger = getClient();
+        const userCount = users.length;
+        let savedUserCount = 0;
+        const db: any = {};
+        if (savedUserCount === 0) {
+            await createDatabase(null, 'userlist').then(async (client: any) => {
+                db.list = client;
+            }).catch((error: any) => {
+                reject(error);
+            });
+        }
+        const loopUser = async function(users: any) {
+            await createDatabase(users[savedUserCount].id, '').then(async (client: any) => {
+                db[`user${users[savedUserCount].id}`] = client;
+                if (++savedUserCount < userCount) {
+                    await loopUser(users);
+                } else {
+                    resolve(db);
+                }
+            }).catch((error) => {
+                reject(error);
+            });
+        }
+        await loopUser(users);
+    });
+}
+
+async function insertData(db: any, users: any): Promise<any> {
+    const logger = getClient();
+    return new Promise(async (resolve, reject) => {
+        const userCount = users.length;
+        let savedUserCount = 0;
+        let dBase: any = [];
+        const loopUser = async function(user: any, client: any) { 
+            dBase.push({
+                id: user.id,
+                name: `user${user.id}`,
+            });
+            await client.findOne({ id: user.id }).then(async (data: any) => {
+                if (data === null) {
+                    let userData = new client(user);
+                    await userData.save().then(async () => {
+                        logger.info(`${user.name} saved!!!`); 
+                        let dbData = new db.list(dBase[user.id - 1]);
+                        await dbData.save().catch((error: any) => {
+                            logger.error(error);
+                            reject(error);
+                        });
+                        savedUserCount++;
+                        if (savedUserCount < userCount) {
+                            const u = { ...users[savedUserCount] };
+                            const c = db[`user${u.id}`];
+                            return await loopUser(u, c);
+                        } else {
+                            resolve();
+                        }
+                    }).catch((error: any) => {
+                        logger.error(error);
+                        reject(error);
+                    }); 
+                } else {
+                    savedUserCount++;
+                    if (savedUserCount < userCount) {
+                        const u = { ...users[savedUserCount] };
+                        const c = db[`user${u.id}`];
+                        return await loopUser(u, c);
+                    } else {
+                        resolve();
+                    }
+                }
+            });
+        }
+        const user = { ...users[savedUserCount] };
+        const client = db[`user${users[savedUserCount].id}`];
+        await loopUser(user, client);
+    });
+}
+
+export default async function handleData (): Promise<any> {
+    return new Promise(async (resolve, reject) => {
 
         let comments: commentsModel[] = [];
         await getComments().then((data: commentsModel[]) => {
@@ -19,7 +102,7 @@ export default async function handleData (mongoClient: any): Promise<any> {
         }).catch(error => {
             reject(error);
         });
-
+        
         let posts: postsModel[] = [];
         await getPosts().then((data: any[]) => {
             data.map((d: any) => {
@@ -74,6 +157,7 @@ export default async function handleData (mongoClient: any): Promise<any> {
                 }
             });
         });
+        
         posts.map((post: postsModel) => {
             users.map((user: userModel, uIndex: number) => {
                 if (user.id === post.userId) {
@@ -81,20 +165,18 @@ export default async function handleData (mongoClient: any): Promise<any> {
                 }
             });
         });
-        const userCount = users.length;
-        let savedUserCount = 0;
-        users.map(async (user: userModel, index: number) => {
-            let userData = new mongoClient((user));
-            await userData.save().then(() => {
-                logger.info(`${user.name} saved!!!`);
-                savedUserCount ++;
-                if (savedUserCount === userCount) {
-                    resolve();
-                }
-            }).catch((error: any) => {
-                logger.error(error);
-                reject(error);
-            });
+
+        let db: any;
+        await mapDatabase(users).then((database: any) => {
+            db = database;
+        }).catch((error: any) => {
+            reject(error);
+        });
+
+        await insertData(db, users).then(() => {
+            resolve();
+        }).catch((error: any) => {
+            reject(error);
         });
     });
 }

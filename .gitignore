@@ -3,3 +3,5 @@ cron-job/node_modules
 
 user-api/dist
 user-api/node_modules
+
+npm-debug.log

@@ -1,4 +1,4 @@
-import mongoose, { Collection } from 'mongoose';
+import mongoose from 'mongoose';
 import Bluebird from 'bluebird';
 
 import config from '../config';
@@ -6,17 +6,20 @@ import { getClient } from './winston';
 
 Promise = Bluebird as any || Promise;
 
-(<any>mongoose).Promise = Bluebird;
-export default async function initializeMongo(): Promise<any> {
+(<any>mongoose).Promise = Promise;
+const connection: any = {};
+export default async function createDatabase(id: number, dbName: string): Promise<any> {
     const logger = getClient();
     return new Promise(async (resolve, reject) => {
-        await mongoose.connect(config.mongoUrl, {useNewUrlParser: true}).then(() => {
-            logger.info('MongoDB connection successfull');
-        }).catch((error: any) => {
-            logger.error(`${error.message} \nExiting!!!`);
-            reject(error.message);
-        });
-    
+        connection[`mongoose${id}`] = await mongoose.createConnection(`${config.mongoUrl}/${dbName === '' ? `user${id}` : dbName}`, {useNewUrlParser: true});
+
+        logger.info(`MongoDB connection to database ${dbName === '' ? `user${id}` : dbName} successful`);
+
+        const dbSchema = new mongoose.Schema({
+            id: Number,
+            name: String,
+        }, { collection: 'dbList' });
+
         const userSchema = new mongoose.Schema({
             id: Number,
             name: String,
@@ -30,7 +33,7 @@ export default async function initializeMongo(): Promise<any> {
                 zipcode: String,
                 geo: {
                     lat: String,
-                    lang: String,
+                    lng: String,
                 },
             },
             phone: String,
@@ -53,8 +56,9 @@ export default async function initializeMongo(): Promise<any> {
                     body: String,
                 }],
             }],
-        }, { collection: 'users' });
-        const client = mongoose.model('User', userSchema)
+        }, { collection: `user${id}` });
+
+        const client = await connection[`mongoose${id}`].model((dbName !== '') ? 'dbList' : `user${id}`, (dbName !== '') ? dbSchema : userSchema);
         resolve(client);
     });
 }
