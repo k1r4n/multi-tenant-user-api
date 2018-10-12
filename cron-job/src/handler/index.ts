@@ -70,88 +70,55 @@ async function insertData(db: any, users: any): Promise<any> {
         const userCount = users.length;
         let savedUserCount = 0;
         let dBase: any = [];
-        const loopUser = async function(user: any, client: any) {
+        const loopUser = async function(user: any, client: any) { 
+            // console.log(savedUserCount, client.db.name, users[savedUserCount].id, db[`user${users[savedUserCount].id}`].db.name);
             dBase.push({
                 id: user.id,
                 name: `user${user.id}`,
             });
-            let userData = new client(user);
-            await userData.save().then(async () => {
-                logger.info(`${user.name} saved!!!`); 
-                let dbData = new db.list(dBase[user.id - 1]);
-                await dbData.save().then(async () => {
-                }).catch((error: any) => {
-                    logger.error(error);
-                    reject(error);
-                });
-                if (++savedUserCount < userCount) {
-                    const u = { ...users[savedUserCount] };
-                    const c = db[`user${user.id}`];
-                    await loopUser(u, c);
+            await client.findOne({ id: user.id }).then(async (data: any) => {
+                if (data === null) {
+                    let userData = new client(user);
+                    await userData.save().then(async () => {
+                        logger.info(`${user.name} saved!!!`); 
+                        let dbData = new db.list(dBase[user.id - 1]);
+                        await dbData.save().catch((error: any) => {
+                            logger.error(error);
+                            reject(error);
+                        });
+                        savedUserCount++;
+                        if (savedUserCount < userCount) {
+                            const u = { ...users[savedUserCount] };
+                            const c = db[`user${u.id}`];
+                            return await loopUser(u, c);
+                        } else {
+                            resolve();
+                        }
+                    }).catch((error: any) => {
+                        logger.error(error);
+                        reject(error);
+                    }); 
                 } else {
-                    resolve();
+                    savedUserCount++;
+                    if (savedUserCount < userCount) {
+                        const u = { ...users[savedUserCount] };
+                        const c = db[`user${u.id}`];
+                        return await loopUser(u, c);
+                    } else {
+                        resolve();
+                    }
                 }
-            }).catch((error: any) => {
-                logger.error(error);
-                reject(error);
             });
         }
         const user = { ...users[savedUserCount] };
         const client = db[`user${users[savedUserCount].id}`];
         await loopUser(user, client);
-
-        // for (let user of users) {
-        //     dBase.push({
-        //         id: user.id,
-        //         name: `user${user.id}`,
-        //     });
-        //     let userData = new db[`user${user.id}`](user);
-        //     await userData.save().then(async () => {
-        //         logger.info(`${user.name} saved!!!`);
-        //         let dbData = new db.list(dBase[user.id - 1]);
-        //         await dbData.save().then(async () => {
-        //         }).catch((error: any) => {
-        //             logger.error(error);
-        //             reject(error);
-        //         });
-        //         savedUserCount ++;
-        //         if (savedUserCount === userCount) {
-        //             resolve();
-        //         }
-        //     }).catch((error: any) => {
-        //         logger.error(error);
-        //         reject(error);
-        //     });
-        // }
-        // users.map(async (user: userModel, index: number) => {
-        //     dBase.push({
-        //         id: user.id,
-        //         name: `user${user.id}`,
-        //     });
-        //     let userData = new db[`user${user.id}`](user);
-        //     await userData.save().then(async () => {
-        //         logger.info(`${user.name} saved!!!`);
-        //         let dbData = new db.list(dBase[user.id - 1]);
-        //         await dbData.save().then(async () => {
-        //         }).catch((error: any) => {
-        //             logger.error(error);
-        //             reject(error);
-        //         });
-        //         savedUserCount ++;
-        //         if (savedUserCount === userCount) {
-        //             resolve();
-        //         }
-        //     }).catch((error: any) => {
-        //         logger.error(error);
-        //         reject(error);
-        //     });
-        // });
     });
 }
 
 async function listDatase(id: number): Promise<any> {
     return new Promise(async (resolve, reject) => {
-        mongoose.connect(`${config.mongoUrl}/test${id}`, {useNewUrlParser: true});
+        mongoose.connect(`${config.mongoUrl}/id`, {useNewUrlParser: true});
         mongoose.connection.on('open', async function(){
             return mongoose.connection.db.admin().listDatabases(function (err, result) {
                 if (err) {
@@ -247,31 +214,21 @@ export default async function handleData (): Promise<any> {
             reject(error);
         });
         // console.log(db);
-        // await insertData(db, users).then(async () => {
-        //     console.log('completed');
-        //     // resolve();
-        // }).catch((error: any) => {
-        //     reject(error);
-        // });
+        await insertData(db, users).then(async () => {
+            console.log('completed');
+        }).catch((error: any) => {
+            reject(error);
+        });
 
-        users.map(async (user: any, index: any) => {
-            const client =  db[`user${index + 1}`];
-            await loopInsert(user, client );
-        }); 
-        
+        await listDatase(db.user5.name);
+        // await listDatase(1);
+        // console.log(Object.keys(db));    
         for (let item of Object.keys(db)) {
             await db[item].find().then((data: any) => {
-               console.log(data.length); 
+                console.log(data.length, item); 
             }).error((error: any) => {
                 console.log(error);
             });
         }
     });
-}
-
-async function loopInsert(user: any, client: any) { 
-    // console.log(user);
-    // const userData = client(JSON.parse(user));
-    // await userData.inserOne();  
-    await client.create(user);
 }
