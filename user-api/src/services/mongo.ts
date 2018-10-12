@@ -9,64 +9,58 @@ Promise = Bluebird as any || Promise;
 
 (<any>mongoose).Promise = Bluebird;
 
-const dbSchema = new mongoose.Schema({
-    id: Number,
-    name: String,
-}, { collection: 'dbList' });
-
-const userSchema = new mongoose.Schema({
-    id: Number,
-    name: String,
-    username: String,
-    email: String,
-    avatar: String,
-    address: {
-        street: String,
-        suite: String,
-        city: String,
-        zipcode: String,
-        geo: {
-            lat: String,
-            lang: String,
-        },
-    },
-    phone: String,
-    website: String,
-    compant: {
-        name: String,
-        catchPhrase: String,
-        bs: String,
-    },
-    posts: [{
-        userId: Number,
-        id: Number,
-        title: String,
-        body: String,
-        comments: [{
-            postId: Number,
-            id: Number,
-            name: String,
-            email: String,
-            body: String,
-        }],
-    }],
-}, { collection: 'users' });
-
 const dbList: any = {};
 
 async function createDatabaseConnection(name: string, flag: string): Promise<any> {
     const logger = getClient();
     return new Promise(async (resolve, reject) => {
-        console.log(`${config.mongoUrl}/${name}`)
-        await mongoose.connect(`${config.mongoUrl}/${name}`, {useNewUrlParser: true}).then(() => {
-            logger.info('MongoDB connection successfull');
-        }).catch((error: any) => {
-            logger.error(`${error.message} \nExiting!!!`);
-            reject(error.message);
-        });
-    
+        const  connection = await mongoose.createConnection(`${config.mongoUrl}/${name}`, {useNewUrlParser: true});
+        logger.info(`MongoDB connection to database ${name} successful`);
+
+        const dbSchema = new mongoose.Schema({
+            id: Number,
+            name: String,
+        }, { collection: 'dbList' });
         
-        const client = mongoose.model((flag === 'list') ? 'dbList' : 'User', (flag === 'list') ? dbSchema : userSchema);
+        const userSchema = new mongoose.Schema({
+            id: Number,
+            name: String,
+            username: String,
+            email: String,
+            avatar: String,
+            address: {
+                street: String,
+                suite: String,
+                city: String,
+                zipcode: String,
+                geo: {
+                    lat: String,
+                    lng: String,
+                },
+            },
+            phone: String,
+            website: String,
+            compant: {
+                name: String,
+                catchPhrase: String,
+                bs: String,
+            },
+            posts: [{
+                userId: Number,
+                id: Number,
+                title: String,
+                body: String,
+                comments: [{
+                    postId: Number,
+                    id: Number,
+                    name: String,
+                    email: String,
+                    body: String,
+                }],
+            }],
+        }, { collection: name });
+        
+        const client = connection.model((flag === 'list') ? 'dbList' :name, (flag === 'list') ? dbSchema : userSchema);
         resolve(client);
     });
 }
@@ -74,38 +68,34 @@ async function createDatabaseConnection(name: string, flag: string): Promise<any
 export default async function initializMongo(): Promise<any> {
     const logger = getClient();
     return new Promise(async (resolve, reject) => {
-        let dbList: any;
-        await createDatabaseConnection('user10', 'user').then(async (client: any) => {
-            dbList = client;
-        });
-
-        mongoose.connect(`${config.mongoUrl}/test`, {useNewUrlParser: true});
-        await mongoose.connection.on('open', async function(){
-            return await mongoose.connection.db.admin().listDatabases(function (err, result) {
-                if (err) {
-                    console.log(err);
-                } else {
-                    console.log(result);
-                }
-            })
-            
-            // .collections(function(error, names) {
-            // if (error) {
-            //     throw new Error('error');
-            // } else {
-            //     console.log('on', names, error);
-            //     names.map(function(name) {
-            //     console.log('found collection %s', name);
-            //     });
-            // }
-            // });
-        });
-        
-        await dbList.find().then((data: any) => {
-            console.log(data.length, 'sdsd');
+        let userDbList: any;
+        await createDatabaseConnection(config.dbList, 'list').then(async (client: any) => {
+            userDbList = client;
         }).catch((error: any) => {
             logger.error(error);
             reject(error);
+        });
+        let dbNameList: any;
+        await userDbList.find().then((data: any) => {
+            dbNameList = data;
+        }).catch((error: any) => {
+            logger.error(error);
+            reject(error);
+        });
+
+        const totalCount = dbNameList.length;
+        let savedCount: number = 0;
+        dbNameList.map(async (dbName: any) => {
+            await createDatabaseConnection(dbName.name, 'user').then((client: any) => {
+                dbList[dbName.name] = client;
+                savedCount++;
+                if (savedCount === totalCount) {
+                    resolve();
+                }
+            }).catch((error: any) => {
+                logger.error(error);
+                reject(error);
+            });
         });
     });
 }

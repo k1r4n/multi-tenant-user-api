@@ -1,10 +1,11 @@
 import handleData from './handler';
-import * as winston from './services/winston';
+import * as winstonService from './services/winston';
+import winston = require('winston');
 
 async function init() {
 
-    winston.intialize();
-    const logger = winston.getClient();
+    winstonService.intialize();
+    const logger: typeof winston = winstonService.getClient();
 
     logger.info('Creating Mongo connection');
     await handleData().then(() => {

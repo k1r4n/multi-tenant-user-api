@@ -39,28 +39,6 @@ async function mapDatabase(users: any): Promise<any>{
             });
         }
         await loopUser(users);
-        // for (let user of users) {
-        //     await createDatabase(user.id, '').then(async (client: any) => {
-        //         db[`user${user.id}`] = client;
-        //         savedUserCount++;
-        //         if (userCount === savedUserCount) {
-        //             resolve(db);
-        //         }
-        //     }).catch((error) => {
-        //         reject(error);
-        //     });
-        // }
-        // users.map(async (user: any) => {
-        //     await createDatabase(user.id, '').then(async (client: any) => {
-        //         db[`user${user.id}`] = client;
-        //         savedUserCount++;
-        //         if (userCount === savedUserCount) {
-        //             resolve(db);
-        //         }
-        //     }).catch((error) => {
-        //         reject(error);
-        //     });
-        // });
     });
 }
 
@@ -71,7 +49,6 @@ async function insertData(db: any, users: any): Promise<any> {
         let savedUserCount = 0;
         let dBase: any = [];
         const loopUser = async function(user: any, client: any) { 
-            // console.log(savedUserCount, client.db.name, users[savedUserCount].id, db[`user${users[savedUserCount].id}`].db.name);
             dBase.push({
                 id: user.id,
                 name: `user${user.id}`,
@@ -116,26 +93,8 @@ async function insertData(db: any, users: any): Promise<any> {
     });
 }
 
-async function listDatase(id: number): Promise<any> {
-    return new Promise(async (resolve, reject) => {
-        mongoose.connect(`${config.mongoUrl}/id`, {useNewUrlParser: true});
-        mongoose.connection.on('open', async function(){
-            return mongoose.connection.db.admin().listDatabases(function (err, result) {
-                if (err) {
-                    console.log(err);
-                    reject();
-                } else {
-                    console.log(result);
-                    resolve();
-                }
-            }) 
-        });
-    });
-}
-
 export default async function handleData (): Promise<any> {
     return new Promise(async (resolve, reject) => {
-        const logger = getClient();
 
         let comments: commentsModel[] = [];
         await getComments().then((data: commentsModel[]) => {
@@ -143,7 +102,7 @@ export default async function handleData (): Promise<any> {
         }).catch(error => {
             reject(error);
         });
-
+        
         let posts: postsModel[] = [];
         await getPosts().then((data: any[]) => {
             data.map((d: any) => {
@@ -198,6 +157,7 @@ export default async function handleData (): Promise<any> {
                 }
             });
         });
+        
         posts.map((post: postsModel) => {
             users.map((user: userModel, uIndex: number) => {
                 if (user.id === post.userId) {
@@ -207,28 +167,16 @@ export default async function handleData (): Promise<any> {
         });
 
         let db: any;
-        // console.log(db);
         await mapDatabase(users).then((database: any) => {
             db = database;
         }).catch((error: any) => {
             reject(error);
         });
-        // console.log(db);
-        await insertData(db, users).then(async () => {
-            console.log('completed');
+
+        await insertData(db, users).then(() => {
+            resolve();
         }).catch((error: any) => {
             reject(error);
         });
-
-        await listDatase(db.user5.name);
-        // await listDatase(1);
-        // console.log(Object.keys(db));    
-        for (let item of Object.keys(db)) {
-            await db[item].find().then((data: any) => {
-                console.log(data.length, item); 
-            }).error((error: any) => {
-                console.log(error);
-            });
-        }
     });
 }
