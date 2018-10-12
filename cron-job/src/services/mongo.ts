@@ -38,7 +38,7 @@ export default async function createDatabase(id: number, dbName: string): Promis
             },
             phone: String,
             website: String,
-            compant: {
+            company: {
                 name: String,
                 catchPhrase: String,
                 bs: String,

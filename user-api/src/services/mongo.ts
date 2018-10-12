@@ -40,7 +40,7 @@ async function createDatabaseConnection(name: string, flag: string): Promise<any
             },
             phone: String,
             website: String,
-            compant: {
+            company: {
                 name: String,
                 catchPhrase: String,
                 bs: String,
