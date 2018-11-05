@@ -1,5 +1,5 @@
 ### USER DATABASE
-
+This is a multi tenant restful api server with Node.js, Typescript, Express.js and MongoDB
 ## Setting up MongoDB
 
 ```
